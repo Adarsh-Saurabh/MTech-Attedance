@@ -55,6 +55,11 @@
 <div id="screen-dashboard" class="screen">
   <div class="page-content fade-in">
 
+    <!-- Install banner (shown when PWA is installable) -->
+    <button class="install-btn btn btn-primary" style="display:none;gap:10px;margin-bottom:0">
+      📲 Install App on Phone
+    </button>
+
     <!-- Today card -->
     <div class="today-card">
       <div class="today-date" id="today-date">Loading...</div>
@@ -253,6 +258,21 @@
       </div>
     </div>
 
+    <!-- Install App -->
+    <div class="section-header" style="margin-top:4px">Install App</div>
+    <div class="card">
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Install on Phone</div>
+          <div class="setting-sub">Add to home screen as a native-like app</div>
+        </div>
+        <button class="btn btn-primary btn-sm install-btn" style="display:none">Install</button>
+      </div>
+      <div style="font-size:0.78rem;color:var(--text3);margin-top:4px;line-height:1.5">
+        💡 <b>Shortcut tip:</b> After installing, <b>long-press</b> the app icon to get quick <b>Mark IN</b> / <b>Mark OUT</b> shortcuts without opening the full app.
+      </div>
+    </div>
+
     <!-- Data -->
     <div class="section-header" style="margin-top:4px">Data Management</div>
     <div class="card">
@@ -322,17 +342,24 @@
     <div class="modal-handle"></div>
     <div class="modal-title" id="modal-date">--</div>
 
-    <div class="form-group">
-      <label>IN Time</label>
-      <input type="time" id="modal-in" />
+    <!-- Future date hint -->
+    <div id="modal-future-hint" style="display:none;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:#818cf8;margin-bottom:16px">
+      📅 This is a future date. You can only mark it as a holiday.
     </div>
-    <div class="form-group">
-      <label>OUT Time</label>
-      <input type="time" id="modal-out" />
-    </div>
-    <div class="form-group">
-      <label>Note</label>
-      <textarea id="modal-note" placeholder="e.g. Lab work till late, holiday, etc."></textarea>
+
+    <div id="modal-time-fields">
+      <div class="form-group">
+        <label>IN Time</label>
+        <input type="time" id="modal-in" />
+      </div>
+      <div class="form-group">
+        <label>OUT Time</label>
+        <input type="time" id="modal-out" />
+      </div>
+      <div class="form-group">
+        <label>Note</label>
+        <textarea id="modal-note" placeholder="e.g. Lab work till late, holiday, etc."></textarea>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
       <label class="toggle">
