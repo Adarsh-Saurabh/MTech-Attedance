@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="description" content="Track your biometric attendance at NIT Rourkela — reminders, streaks, and history." />
+  <title>NITR Attendance Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ══════════════ ONBOARDING ══════════════ -->
+<div id="screen-onboarding" class="screen active">
+  <div class="onboard-card fade-in">
+    <div class="onboard-logo">🎓</div>
+    <h1>NITR Attendance</h1>
+    <p>Track your biometric attendance. Never miss a session.</p>
+    <form id="onboard-form">
+      <div class="form-group">
+        <label for="ob-name">Full Name</label>
+        <input id="ob-name" type="text" placeholder="e.g. Adarsh Kumar" required autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label for="ob-roll">Roll Number</label>
+        <input id="ob-roll" type="text" placeholder="e.g. 224EC1234" required autocomplete="off" />
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-start">
+        Start Tracking →
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════ TOP BAR ══════════════ -->
+<header class="topbar" id="topbar" style="display:none">
+  <div>
+    <div class="topbar-title">🎓 NITR Attendance</div>
+    <div class="topbar-sub" id="user-roll">--</div>
+  </div>
+  <div class="topbar-right">
+    <div class="icon-btn" id="theme-toggle" title="Toggle theme">☀️</div>
+    <div class="icon-btn" id="btn-settings" title="Settings">⚙️</div>
+  </div>
+</header>
+
+<!-- Notification banner -->
+<div class="notif-banner" id="notif-banner">
+  🔔 <span>Enable notifications to get IN/OUT reminders. Tap here.</span>
+</div>
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<div id="screen-dashboard" class="screen">
+  <div class="page-content fade-in">
+
+    <!-- Today card -->
+    <div class="today-card">
+      <div class="today-date" id="today-date">Loading...</div>
+      <div class="today-title">Today's Attendance</div>
+
+      <div class="attendance-row">
+        <div class="att-box" id="att-box-in">
+          <div class="att-box-label">IN</div>
+          <div class="att-box-time">--:--</div>
+          <div class="att-box-icon">⏳</div>
+        </div>
+        <div class="att-box" id="att-box-out">
+          <div class="att-box-label">OUT</div>
+          <div class="att-box-time">--:--</div>
+          <div class="att-box-icon">⏳</div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn" id="btn-in">📲 Mark IN</button>
+        <button class="btn" id="btn-out">📲 Mark OUT</button>
+      </div>
+
+      <div id="dur-bar-wrap" class="duration-bar-wrap" style="display:none">
+        <div class="duration-label">
+          <span>Duration</span>
+          <span id="dur-label">--</span>
+        </div>
+        <div class="duration-bar"><div class="duration-fill" id="dur-fill" style="width:0%"></div></div>
+      </div>
+
+      <div style="margin-top:10px;font-size:0.78rem;color:var(--text2);text-align:center" id="window-hint"></div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="section-header" style="margin-top:4px">Quick Stats</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val" id="qs-streak">--</div>
+        <div class="stat-lbl">Current Streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="qs-compliance">--%</div>
+        <div class="stat-lbl">Compliance</div>
+      </div>
+      <div class="stat-card" style="grid-column:span 2">
+        <div class="stat-val" id="qs-days">--/--</div>
+        <div class="stat-lbl">Days Present This Period</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card" style="padding:12px 16px">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Legend</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <span class="badge badge-green">🟢 Full (≥9h)</span>
+        <span class="badge badge-amber">🟡 Partial / Short</span>
+        <span class="badge badge-red">🔴 Missed</span>
+        <span class="badge" style="background:var(--bg3);color:var(--text2)">⚪ Holiday/Weekend</span>
+      </div>
+    </div>
+
+    <!-- IN/OUT Time Windows -->
+    <div class="card" style="padding:14px 16px">
+      <div class="section-header" style="margin-bottom:8px">Attendance Windows</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem">
+        <div>
+          <div style="font-weight:700;color:var(--primary)">IN Window</div>
+          <div style="color:var(--text2)">7:30 AM – 9:30 AM</div>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#6366f1">OUT Window</div>
+          <div style="color:var(--text2)">5:00 PM – 10:00 PM</div>
+        </div>
+        <div style="grid-column:span 2;color:var(--amber);font-size:0.8rem">⚠️ Minimum 9 hours between IN and OUT</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ CALENDAR ══════════════ -->
+<div id="screen-calendar" class="screen">
+  <div class="page-content fade-in">
+    <div class="card">
+      <div class="cal-header">
+        <button class="icon-btn" id="cal-prev">‹</button>
+        <h2 id="cal-month-title">--</h2>
+        <button class="icon-btn" id="cal-next">›</button>
+      </div>
+      <!-- Day names: Mon–Sun -->
+      <div class="cal-grid" id="cal-day-names">
+        <div class="cal-day-name">Mo</div><div class="cal-day-name">Tu</div>
+        <div class="cal-day-name">We</div><div class="cal-day-name">Th</div>
+        <div class="cal-day-name">Fr</div><div class="cal-day-name">Sa</div>
+        <div class="cal-day-name">Su</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- Color key -->
+    <div class="card" style="padding:12px 16px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.78rem">
+        <span class="badge badge-green">🟢 Full ≥9h</span>
+        <span class="badge badge-amber">🟡 Partial</span>
+        <span class="badge badge-red">🔴 Missed</span>
+        <span class="badge" style="background:var(--bg3);color:var(--text2)">⚪ Holiday</span>
+      </div>
+    </div>
+    <p style="text-align:center;color:var(--text3);font-size:0.78rem;padding:4px">
+      Tap any past date to view or edit
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════ STATS ══════════════ -->
+<div id="screen-stats" class="screen">
+  <div class="page-content fade-in">
+    <div class="section-header">Statistics</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-streak">--</div>
+        <div class="stat-lbl">🔥 Current Streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-best">--</div>
+        <div class="stat-lbl">🏆 Best Streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-compliance">--%</div>
+        <div class="stat-lbl">📊 Compliance</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-avgdur">--</div>
+        <div class="stat-lbl">⏱️ Avg Duration</div>
+      </div>
+      <div class="stat-card" style="grid-column:span 2">
+        <div class="stat-val" id="stat-days">--/--</div>
+        <div class="stat-lbl">Days Present / Total Working Days</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:4px">Last 7 Days</div>
+    <div class="card">
+      <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
+      <div style="text-align:center;font-size:0.72rem;color:var(--text3);margin-top:8px">
+        Teal = ≥9h &nbsp;|&nbsp; Red = &lt;9h &nbsp;|&nbsp; Dashed line = 9h target
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SETTINGS ══════════════ -->
+<div id="screen-settings" class="screen">
+  <div class="page-content fade-in">
+
+    <!-- Profile info -->
+    <div class="section-header">Profile</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#6366f1);display:flex;align-items:center;justify-content:center;font-size:1.4rem">🎓</div>
+        <div>
+          <div style="font-weight:700" id="settings-name">--</div>
+          <div style="color:var(--text2);font-size:0.85rem" id="settings-roll">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="section-header" style="margin-top:4px">Appearance</div>
+    <div class="card">
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Light Mode</div>
+          <div class="setting-sub">Switch between dark and light theme</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settings-theme-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="section-header" style="margin-top:4px">Notifications</div>
+    <div class="card">
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Daily Reminders</div>
+          <div class="setting-sub">IN & OUT window reminders</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settings-notif-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="section-header" style="margin-top:4px">Data Management</div>
+    <div class="card">
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Export as CSV</div>
+          <div class="setting-sub">Spreadsheet-friendly download</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-export-csv">Export</button>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Export as JSON</div>
+          <div class="setting-sub">Full backup for import</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-export-json">Export</button>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Import JSON</div>
+          <div class="setting-sub">Restore from backup or another device</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-import">Import</button>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none" />
+    </div>
+
+    <!-- Danger -->
+    <div class="section-header" style="margin-top:4px">Danger Zone</div>
+    <div class="card">
+      <div class="setting-item">
+        <div>
+          <div class="setting-label" style="color:var(--red)">Reset All Data</div>
+          <div class="setting-sub">Delete all attendance records</div>
+        </div>
+        <button class="btn btn-danger btn-sm" id="btn-reset">Reset</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;color:var(--text3);font-size:0.75rem;padding:16px 0">
+      NITR Attendance Tracker v1.0 · Phase 1<br>
+      All data stored locally on your device
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ BOTTOM NAV ══════════════ -->
+<nav class="bottom-nav" id="bottom-nav" style="display:none">
+  <div class="nav-item active" data-screen="dashboard">
+    <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+  </div>
+  <div class="nav-item" data-screen="calendar">
+    <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+  </div>
+  <div class="nav-item" data-screen="stats">
+    <span class="nav-icon">📊</span><span class="nav-label">Stats</span>
+  </div>
+  <div class="nav-item" data-screen="settings">
+    <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+  </div>
+</nav>
+
+<!-- ══════════════ DAY MODAL ══════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="day-modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-date">--</div>
+
+    <div class="form-group">
+      <label>IN Time</label>
+      <input type="time" id="modal-in" />
+    </div>
+    <div class="form-group">
+      <label>OUT Time</label>
+      <input type="time" id="modal-out" />
+    </div>
+    <div class="form-group">
+      <label>Note</label>
+      <textarea id="modal-note" placeholder="e.g. Lab work till late, holiday, etc."></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <label class="toggle">
+        <input type="checkbox" id="modal-holiday" />
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="font-size:0.9rem;font-weight:500">Mark as Holiday</span>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" id="modal-cancel" style="flex:1">Cancel</button>
+      <button class="btn btn-primary" id="modal-save" style="flex:2">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
