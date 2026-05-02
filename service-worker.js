@@ -1,4 +1,4 @@
-const CACHE = 'nitr-attendance-v2';
+const CACHE = 'nitr-attendance-v3';
 const ASSETS = ['./', './index.html', './css/style.css', './js/app.js', './js/storage.js', './js/attendance.js', './js/calendar.js', './js/stats.js', './js/notifications.js', './js/theme.js'];
 
 self.addEventListener('install', e => {
@@ -11,8 +11,18 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// Network First, fallback to cache
 self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  e.respondWith(
+    fetch(e.request)
+      .then(res => {
+        // Update cache with new version if successful
+        const resClone = res.clone();
+        caches.open(CACHE).then(cache => cache.put(e.request, resClone));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
 
 self.addEventListener('notificationclick', e => {
