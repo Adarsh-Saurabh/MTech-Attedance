@@ -147,16 +147,14 @@ function renderDashboard() {
 
   const btnIn  = document.getElementById('btn-in');
   const btnOut = document.getElementById('btn-out');
-  btnIn.disabled  = !!rec.in  || !inWindow();
-  btnOut.disabled = !!rec.out || !outWindow() || !rec.in;
+  btnIn.disabled  = !!rec.in;
+  btnOut.disabled = !!rec.out || !rec.in;
 
   const hint = document.getElementById('window-hint');
   const n = now.getHours()*60 + now.getMinutes();
-  if (n < 7*60+30)       hint.textContent = 'IN window opens at 7:30 AM';
-  else if (inWindow())   hint.textContent = '✅ IN window open — 7:30–9:30 AM';
-  else if (n < 17*60)    hint.textContent = 'OUT window opens at 5:00 PM';
-  else if (outWindow())  hint.textContent = '✅ OUT window open — 5:00–10:00 PM';
-  else                   hint.textContent = 'Attendance windows closed for today';
+  if (inWindow())        hint.textContent = '✅ Good time to mark IN (7:30–9:30 AM)';
+  else if (outWindow())  hint.textContent = '✅ Good time to mark OUT (5:00–10:00 PM)';
+  else                   hint.textContent = 'You can mark attendance at any time.';
 
   if (rec.in && rec.out) {
     const dur = calcDuration(rec.in, rec.out);
@@ -201,21 +199,22 @@ function startClock() { setInterval(renderDashboard, 60 * 1000); }
 
 // ── Mark IN/OUT ────────────────────────────────────────
 function triggerMarkIN() {
-  if (!inWindow() && !confirm('You are outside the IN window (7:30–9:30 AM). Record anyway?')) return;
   const time = markIN();
   updateBox('in', time);
   renderDashboard();
-  showToast('✅ IN marked at ' + formatTime(time));
+  if (!inWindow()) showToast('✅ IN marked at ' + formatTime(time) + ' (Outside ideal window)');
+  else showToast('✅ IN marked at ' + formatTime(time));
 }
 
 function triggerMarkOUT() {
-  if (!outWindow() && !confirm('You are outside the OUT window (5:00–10:00 PM). Record anyway?')) return;
   const time = markOUT();
   updateBox('out', time);
   renderDashboard();
   const rec = Storage.getRecord(todayKey());
   const dur = calcDuration(rec.in, time);
+  
   if (dur < 9) showToast(`⚠️ Duration ${formatDuration(dur)} — less than 9 hours!`, 'warn');
+  else if (!outWindow()) showToast('✅ OUT marked at ' + formatTime(time) + ` (${formatDuration(dur)}) (Outside ideal window)`);
   else showToast('✅ OUT marked at ' + formatTime(time) + ` (${formatDuration(dur)})`);
 }
 
