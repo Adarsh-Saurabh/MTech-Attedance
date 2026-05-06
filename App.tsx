@@ -17,6 +17,7 @@ import {
   calcDuration,
   formatDuration,
   formatTime,
+  formatWindow,
   getDayStatus,
   getStats,
   getWeeklyData,
@@ -36,6 +37,15 @@ import {
 import { Storage, defaultSettings } from './src/storage';
 import { getPalette } from './src/theme';
 import type { AppScreen, AttendanceRecord, AttendanceRecords, Profile, Settings } from './src/types';
+
+type TimePickerTarget = 'modalIn' | 'modalOut' | 'inStart' | 'inEnd' | 'outStart' | 'outEnd';
+
+type TimePickerState = {
+  target: TimePickerTarget;
+  title: string;
+  value: string;
+  allowClear?: boolean;
+};
 
 const navItems: { id: AppScreen; label: string }[] = [
   { id: 'dashboard', label: 'Home' },
@@ -58,6 +68,7 @@ export default function App() {
   const [modalOut, setModalOut] = useState('');
   const [modalNote, setModalNote] = useState('');
   const [modalHoliday, setModalHoliday] = useState(false);
+  const [timePicker, setTimePicker] = useState<TimePickerState | null>(null);
 
   const colors = getPalette(settings.theme);
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -73,7 +84,7 @@ export default function App() {
         Storage.getRecords(),
       ]);
       setProfile(savedProfile);
-      setSettings({ ...defaultSettings, ...savedSettings });
+      setSettings(mergeSettings(savedSettings));
       setRecords(savedRecords);
       await configureNotificationChannel();
       if (savedSettings.notificationsEnabled && !(await notificationsGranted())) {
@@ -148,7 +159,7 @@ export default function App() {
 
   async function handleNotificationToggle(enabled: boolean) {
     if (enabled) {
-      const scheduled = await scheduleAttendanceReminders();
+      const scheduled = await scheduleAttendanceReminders(settings);
       if (!scheduled) {
         Alert.alert('Permission needed', 'Notifications were not enabled on this device.');
         await updateSettings({ ...settings, notificationsEnabled: false });
@@ -187,7 +198,7 @@ export default function App() {
         Alert.alert('Import failed', 'The selected backup does not include a profile.');
         return;
       }
-      const nextSettings = imported.settings ? { ...defaultSettings, ...imported.settings } : settings;
+      const nextSettings = imported.settings ? mergeSettings(imported.settings) : settings;
       await Storage.setProfile(nextProfile);
       await Storage.setRecords(imported.records);
       await Storage.setSettings(nextSettings);
@@ -198,6 +209,29 @@ export default function App() {
     } catch {
       Alert.alert('Import failed', 'Please choose a valid NITR Attendance JSON backup.');
     }
+  }
+
+  async function applyPickedTime(time?: string) {
+    if (!timePicker) return;
+
+    if (timePicker.target === 'modalIn') setModalIn(time || '');
+    if (timePicker.target === 'modalOut') setModalOut(time || '');
+
+    if (['inStart', 'inEnd', 'outStart', 'outEnd'].includes(timePicker.target) && time) {
+      const nextSettings = {
+        ...settings,
+        attendanceWindows: {
+          ...settings.attendanceWindows,
+          [timePicker.target]: time,
+        },
+      };
+      await updateSettings(nextSettings);
+      if (nextSettings.notificationsEnabled) {
+        await scheduleAttendanceReminders(nextSettings);
+      }
+    }
+
+    setTimePicker(null);
   }
 
   async function resetApp() {
@@ -347,10 +381,10 @@ export default function App() {
               )}
 
               <Text style={styles.hintText}>
-                {inWindow()
-                  ? 'Good time to mark IN: 7:30 AM to 9:30 AM'
-                  : outWindow()
-                    ? 'Good time to mark OUT: 5:00 PM to 10:00 PM'
+                {inWindow(settings)
+                  ? `Good time to mark IN: ${formatWindow(settings.attendanceWindows.inStart, settings.attendanceWindows.inEnd)}`
+                  : outWindow(settings)
+                    ? `Good time to mark OUT: ${formatWindow(settings.attendanceWindows.outStart, settings.attendanceWindows.outEnd)}`
                     : 'You can mark attendance at any time.'}
               </Text>
             </View>
@@ -367,11 +401,15 @@ export default function App() {
               <View style={styles.twoColumn}>
                 <View>
                   <Text style={styles.primaryText}>Ideal IN Time</Text>
-                  <Text style={styles.mutedText}>7:30 AM to 9:30 AM</Text>
+                  <Text style={styles.mutedText}>
+                    {formatWindow(settings.attendanceWindows.inStart, settings.attendanceWindows.inEnd)}
+                  </Text>
                 </View>
                 <View>
                   <Text style={styles.indigoText}>Ideal OUT Time</Text>
-                  <Text style={styles.mutedText}>5:00 PM to 10:00 PM</Text>
+                  <Text style={styles.mutedText}>
+                    {formatWindow(settings.attendanceWindows.outStart, settings.attendanceWindows.outEnd)}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.warningText}>Minimum 9 hours between IN and OUT.</Text>
@@ -399,6 +437,7 @@ export default function App() {
             onExportJSON={handleExportJSON}
             onImportJSON={handleImportJSON}
             onReset={resetApp}
+            onSelectTime={(target, title, value) => setTimePicker({ target, title, value })}
             onToggleNotifications={handleNotificationToggle}
             onUpdateSettings={updateSettings}
             profile={profile}
@@ -429,20 +468,16 @@ export default function App() {
               <Text style={styles.hintBox}>Future dates can only be marked as holidays.</Text>
             ) : (
               <>
-                <Text style={styles.label}>IN time</Text>
-                <TextInput
-                  onChangeText={setModalIn}
-                  placeholder="HH:MM"
-                  placeholderTextColor={colors.text3}
-                  style={styles.input}
+                <TimeField
+                  label="IN time"
+                  onPress={() => setTimePicker({ target: 'modalIn', title: 'Choose IN time', value: modalIn, allowClear: true })}
+                  styles={styles}
                   value={modalIn}
                 />
-                <Text style={styles.label}>OUT time</Text>
-                <TextInput
-                  onChangeText={setModalOut}
-                  placeholder="HH:MM"
-                  placeholderTextColor={colors.text3}
-                  style={styles.input}
+                <TimeField
+                  label="OUT time"
+                  onPress={() => setTimePicker({ target: 'modalOut', title: 'Choose OUT time', value: modalOut, allowClear: true })}
+                  styles={styles}
                   value={modalOut}
                 />
                 <Text style={styles.label}>Note</Text>
@@ -480,9 +515,27 @@ export default function App() {
         </View>
       </Modal>
 
+      <TimePickerModal
+        onCancel={() => setTimePicker(null)}
+        onConfirm={applyPickedTime}
+        picker={timePicker}
+        styles={styles}
+      />
+
       <StatusBar style={settings.theme === 'dark' ? 'light' : 'dark'} />
     </View>
   );
+}
+
+function mergeSettings(settings: Partial<Settings> | null): Settings {
+  return {
+    ...defaultSettings,
+    ...(settings || {}),
+    attendanceWindows: {
+      ...defaultSettings.attendanceWindows,
+      ...(settings?.attendanceWindows || {}),
+    },
+  };
 }
 
 function currentClock() {
@@ -524,6 +577,131 @@ function StatCard({
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
+  );
+}
+
+function TimeField({
+  label,
+  onPress,
+  styles,
+  value,
+}: {
+  label: string;
+  onPress: () => void;
+  styles: ReturnType<typeof createStyles>;
+  value?: string;
+}) {
+  return (
+    <View style={styles.timeFieldWrap}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable onPress={onPress} style={styles.timeField}>
+        <Text style={value ? styles.timeFieldValue : styles.timeFieldPlaceholder}>
+          {value ? formatTime(value) : 'Not set'}
+        </Text>
+        <Text style={styles.timeFieldAction}>Change</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function TimePickerModal({
+  onCancel,
+  onConfirm,
+  picker,
+  styles,
+}: {
+  onCancel: () => void;
+  onConfirm: (time?: string) => void;
+  picker: TimePickerState | null;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const [hour, setHour] = useState(0);
+  const [minute, setMinute] = useState(0);
+
+  useEffect(() => {
+    if (!picker) return;
+    const initial = picker.value || currentClock();
+    const [h, m] = initial.split(':').map(Number);
+    setHour(Number.isNaN(h) ? 0 : h);
+    setMinute(Number.isNaN(m) ? 0 : m);
+  }, [picker]);
+
+  if (!picker) return null;
+
+  function adjustHour(delta: number) {
+    setHour((current) => (current + delta + 24) % 24);
+  }
+
+  function adjustMinute(delta: number) {
+    setMinute((current) => {
+      const total = hour * 60 + current + delta;
+      const normalized = ((total % 1440) + 1440) % 1440;
+      setHour(Math.floor(normalized / 60));
+      return normalized % 60;
+    });
+  }
+
+  function useNow() {
+    const [h, m] = currentClock().split(':').map(Number);
+    setHour(h);
+    setMinute(m);
+  }
+
+  const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+  return (
+    <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.timePickerModal}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>{picker.title}</Text>
+          <Text style={styles.timePickerDisplay}>{formatTime(value)}</Text>
+          <Text style={styles.timePickerSub}>{value}</Text>
+
+          <View style={styles.timePickerGrid}>
+            <View style={styles.timePickerColumn}>
+              <Text style={styles.settingLabel}>Hour</Text>
+              <Pressable onPress={() => adjustHour(1)} style={styles.timeStepButton}>
+                <Text style={styles.secondaryButtonText}>+</Text>
+              </Pressable>
+              <Text style={styles.timeNumber}>{String(hour).padStart(2, '0')}</Text>
+              <Pressable onPress={() => adjustHour(-1)} style={styles.timeStepButton}>
+                <Text style={styles.secondaryButtonText}>-</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.timePickerColumn}>
+              <Text style={styles.settingLabel}>Minute</Text>
+              <Pressable onPress={() => adjustMinute(5)} style={styles.timeStepButton}>
+                <Text style={styles.secondaryButtonText}>+5</Text>
+              </Pressable>
+              <Text style={styles.timeNumber}>{String(minute).padStart(2, '0')}</Text>
+              <Pressable onPress={() => adjustMinute(-5)} style={styles.timeStepButton}>
+                <Text style={styles.secondaryButtonText}>-5</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable onPress={useNow} style={styles.secondaryWideButton}>
+            <Text style={styles.secondaryButtonText}>Use Current Time</Text>
+          </Pressable>
+
+          <View style={styles.modalActions}>
+            {picker.allowClear && (
+              <Pressable onPress={() => onConfirm(undefined)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Clear</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={onCancel} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={() => onConfirm(value)} style={styles.primaryButtonSmall}>
+              <Text style={styles.primaryButtonText}>Set Time</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -671,6 +849,7 @@ function SettingsScreen({
   onExportJSON,
   onImportJSON,
   onReset,
+  onSelectTime,
   onToggleNotifications,
   onUpdateSettings,
   profile,
@@ -681,6 +860,7 @@ function SettingsScreen({
   onExportJSON: () => void;
   onImportJSON: () => void;
   onReset: () => void;
+  onSelectTime: (target: TimePickerTarget, title: string, value: string) => void;
   onToggleNotifications: (enabled: boolean) => void;
   onUpdateSettings: (settings: Settings) => void;
   profile: Profile;
@@ -721,6 +901,39 @@ function SettingsScreen({
             value={settings.notificationsEnabled}
           />
         </View>
+      </View>
+
+      <Text style={styles.sectionHeader}>Attendance Windows</Text>
+      <View style={styles.card}>
+        <View style={styles.timeRangeRow}>
+          <TimeField
+            label="IN starts"
+            onPress={() => onSelectTime('inStart', 'Choose IN start time', settings.attendanceWindows.inStart)}
+            styles={styles}
+            value={settings.attendanceWindows.inStart}
+          />
+          <TimeField
+            label="IN ends"
+            onPress={() => onSelectTime('inEnd', 'Choose IN end time', settings.attendanceWindows.inEnd)}
+            styles={styles}
+            value={settings.attendanceWindows.inEnd}
+          />
+        </View>
+        <View style={styles.timeRangeRow}>
+          <TimeField
+            label="OUT starts"
+            onPress={() => onSelectTime('outStart', 'Choose OUT start time', settings.attendanceWindows.outStart)}
+            styles={styles}
+            value={settings.attendanceWindows.outStart}
+          />
+          <TimeField
+            label="OUT ends"
+            onPress={() => onSelectTime('outEnd', 'Choose OUT end time', settings.attendanceWindows.outEnd)}
+            styles={styles}
+            value={settings.attendanceWindows.outEnd}
+          />
+        </View>
+        <Text style={styles.settingSub}>Reminder times update automatically when these windows change.</Text>
       </View>
 
       <Text style={styles.sectionHeader}>Data Management</Text>
@@ -1125,14 +1338,12 @@ function createStyles(colors: ReturnType<typeof getPalette>) {
     calendarGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginHorizontal: -3,
     },
     dayName: {
       color: colors.text3,
       fontSize: 11,
       fontWeight: '900',
       paddingBottom: 6,
-      paddingHorizontal: 3,
       textAlign: 'center',
       width: '14.2857%',
     },
@@ -1143,9 +1354,8 @@ function createStyles(colors: ReturnType<typeof getPalette>) {
       borderRadius: 9,
       borderWidth: 1,
       justifyContent: 'center',
-      margin: 3,
-      marginTop: 4,
-      width: '12.57%',
+      marginTop: 6,
+      width: '14.2857%',
     },
     calendarDayText: {
       color: colors.text,
@@ -1199,6 +1409,89 @@ function createStyles(colors: ReturnType<typeof getPalette>) {
       fontSize: 12,
       lineHeight: 18,
       marginTop: 3,
+    },
+    timeRangeRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 12,
+    },
+    timeFieldWrap: {
+      flex: 1,
+      marginBottom: 12,
+    },
+    timeField: {
+      alignItems: 'center',
+      backgroundColor: colors.glass,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      minHeight: 48,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    timeFieldValue: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    timeFieldPlaceholder: {
+      color: colors.text3,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    timeFieldAction: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '900',
+    },
+    timePickerModal: {
+      backgroundColor: colors.bg2,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 20,
+    },
+    timePickerDisplay: {
+      color: colors.text,
+      fontSize: 36,
+      fontWeight: '900',
+      textAlign: 'center',
+    },
+    timePickerSub: {
+      color: colors.text2,
+      fontSize: 14,
+      fontWeight: '800',
+      marginBottom: 18,
+      marginTop: 4,
+      textAlign: 'center',
+    },
+    timePickerGrid: {
+      flexDirection: 'row',
+      gap: 14,
+      marginBottom: 14,
+    },
+    timePickerColumn: {
+      alignItems: 'center',
+      backgroundColor: colors.glass,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flex: 1,
+      padding: 14,
+    },
+    timeStepButton: {
+      alignItems: 'center',
+      backgroundColor: colors.bg3,
+      borderRadius: 12,
+      marginVertical: 10,
+      minWidth: 74,
+      paddingVertical: 10,
+    },
+    timeNumber: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: '900',
     },
     dataActions: {
       flexDirection: 'row',

@@ -1,34 +1,9 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import type { Settings } from './types';
+import { formatTime, timeToMinutes } from './attendance';
 
 const CHANNEL_ID = 'attendance-reminders';
-
-const reminders = [
-  {
-    hour: 7,
-    minute: 15,
-    title: 'IN Attendance Reminder',
-    body: 'IN window opens in 15 min at 7:30 AM.',
-  },
-  {
-    hour: 9,
-    minute: 0,
-    title: 'IN Window Closing Soon',
-    body: 'Only 30 min left. IN window closes at 9:30 AM.',
-  },
-  {
-    hour: 16,
-    minute: 45,
-    title: 'OUT Attendance Reminder',
-    body: 'OUT window opens in 15 min at 5:00 PM.',
-  },
-  {
-    hour: 21,
-    minute: 30,
-    title: 'OUT Window Closing Soon',
-    body: 'Only 30 min left. OUT window closes at 10:00 PM.',
-  },
-];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -38,6 +13,40 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+function minutesToParts(total: number) {
+  const normalized = ((total % 1440) + 1440) % 1440;
+  return {
+    hour: Math.floor(normalized / 60),
+    minute: normalized % 60,
+  };
+}
+
+function reminderSchedule(settings: Settings) {
+  const { inStart, inEnd, outStart, outEnd } = settings.attendanceWindows;
+  return [
+    {
+      ...minutesToParts(timeToMinutes(inStart) - 15),
+      title: 'IN Attendance Reminder',
+      body: `IN window opens in 15 min at ${formatTime(inStart)}.`,
+    },
+    {
+      ...minutesToParts(timeToMinutes(inEnd) - 30),
+      title: 'IN Window Closing Soon',
+      body: `Only 30 min left. IN window closes at ${formatTime(inEnd)}.`,
+    },
+    {
+      ...minutesToParts(timeToMinutes(outStart) - 15),
+      title: 'OUT Attendance Reminder',
+      body: `OUT window opens in 15 min at ${formatTime(outStart)}.`,
+    },
+    {
+      ...minutesToParts(timeToMinutes(outEnd) - 30),
+      title: 'OUT Window Closing Soon',
+      body: `Only 30 min left. OUT window closes at ${formatTime(outEnd)}.`,
+    },
+  ];
+}
 
 export async function configureNotificationChannel() {
   if (Platform.OS === 'android') {
@@ -63,7 +72,7 @@ export async function requestNotificationPermission() {
   return requested.granted;
 }
 
-export async function scheduleAttendanceReminders() {
+export async function scheduleAttendanceReminders(settings: Settings) {
   await configureNotificationChannel();
 
   const granted = await requestNotificationPermission();
@@ -71,7 +80,7 @@ export async function scheduleAttendanceReminders() {
 
   await Notifications.cancelAllScheduledNotificationsAsync();
 
-  for (const reminder of reminders) {
+  for (const reminder of reminderSchedule(settings)) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: reminder.title,

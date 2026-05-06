@@ -14,6 +14,12 @@ export const defaultSettings: Settings = {
   notificationsEnabled: false,
   startDate: '2026-05-01',
   gpsEnabled: false,
+  attendanceWindows: {
+    inStart: '07:30',
+    inEnd: '09:30',
+    outStart: '17:00',
+    outEnd: '22:00',
+  },
 };
 
 async function getJSON<T>(key: string, fallback: T): Promise<T> {

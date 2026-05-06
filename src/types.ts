@@ -30,6 +30,14 @@ export type Settings = {
   notificationsEnabled: boolean;
   startDate: string;
   gpsEnabled: boolean;
+  attendanceWindows: AttendanceWindows;
+};
+
+export type AttendanceWindows = {
+  inStart: string;
+  inEnd: string;
+  outStart: string;
+  outEnd: string;
 };
 
 export type DayStatus =

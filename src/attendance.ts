@@ -7,10 +7,6 @@ import type {
   WeeklyDay,
 } from './types';
 
-export const IN_START = { h: 7, m: 30 };
-export const IN_END = { h: 9, m: 30 };
-export const OUT_START = { h: 17, m: 0 };
-export const OUT_END = { h: 22, m: 0 };
 export const MIN_HOURS = 9;
 
 export function toMinutes(h: number, m: number) {
@@ -42,14 +38,20 @@ export function nowMinutes(date = new Date()) {
   return toMinutes(date.getHours(), date.getMinutes());
 }
 
-export function inWindow(date = new Date()) {
-  const n = nowMinutes(date);
-  return n >= toMinutes(IN_START.h, IN_START.m) && n <= toMinutes(IN_END.h, IN_END.m);
+export function timeToMinutes(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+  return toMinutes(h, m);
 }
 
-export function outWindow(date = new Date()) {
+export function inWindow(settings: Settings, date = new Date()) {
   const n = nowMinutes(date);
-  return n >= toMinutes(OUT_START.h, OUT_START.m) && n <= toMinutes(OUT_END.h, OUT_END.m);
+  return n >= timeToMinutes(settings.attendanceWindows.inStart) && n <= timeToMinutes(settings.attendanceWindows.inEnd);
+}
+
+export function outWindow(settings: Settings, date = new Date()) {
+  const n = nowMinutes(date);
+  return n >= timeToMinutes(settings.attendanceWindows.outStart) && n <= timeToMinutes(settings.attendanceWindows.outEnd);
 }
 
 export function calcDuration(inTime?: string, outTime?: string) {
@@ -73,6 +75,10 @@ export function formatTime(time?: string) {
   if (Number.isNaN(h) || Number.isNaN(m)) return '--:--';
   const hour = h % 12 || 12;
   return `${hour}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+export function formatWindow(start: string, end: string) {
+  return `${formatTime(start)} to ${formatTime(end)}`;
 }
 
 export function isWorkingDay(date: string) {
